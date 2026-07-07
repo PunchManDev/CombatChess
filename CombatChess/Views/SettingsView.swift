@@ -50,7 +50,7 @@ struct SettingsView: View {
 /// GPLv3 "Appropriate Legal Notices" (license §5d) + third-party credits.
 struct LicensesView: View {
     /// Public repository hosting the app's Corresponding Source (GPLv3 §6d).
-    static let sourceURL = "https://github.com/jparekh117/combat-chess"
+    static let sourceURL = "https://github.com/PunchManDev/CombatChess"
 
     private var gplText: String {
         guard let url = Bundle.main.url(forResource: "gpl-3.0", withExtension: "txt"),
