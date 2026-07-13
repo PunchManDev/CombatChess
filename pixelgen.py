@@ -95,6 +95,34 @@ def mix(c, target, t):
     return tuple(int(c[i] + (target[i] - c[i]) * t) for i in range(3)) + (255,)
 
 
+def outline_thick(img, color, r=2):
+    """Bold outline: paint transparent pixels within radius r of the shape."""
+    px = img.load()
+    w, h = img.size
+    edges = []
+    for y in range(h):
+        for x in range(w):
+            if px[x, y][3] != 0:
+                continue
+            hit = False
+            for dy in range(-r, r + 1):
+                for dx in range(-r, r + 1):
+                    if dx * dx + dy * dy > r * r + 1:
+                        continue
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < w and 0 <= ny < h and px[nx, ny][3] > 0 \
+                            and px[nx, ny][:3] != color[:3]:
+                        hit = True
+                        break
+                if hit:
+                    break
+            if hit:
+                edges.append((x, y))
+    for x, y in edges:
+        px[x, y] = color
+    return img
+
+
 def shade_pass(img):
     """SF2-style volume pass: top-lit highlight, under-shadow, edge dither.
 
@@ -502,67 +530,103 @@ def gen_fighters():
 
 # ------------------------------------------------------------- board icons --
 def draw_icon(piece, is_white):
-    """24x24 staunton icons."""
-    img = new(24, 24)
+    """80x80 classic solid-glyph chess pieces: flat fill, bold outline, and
+    crisp internal detail lines (rook bars, queen coronet, knight mane, etc.)
+    in the widely-used standard chess-symbol style."""
+    S = 80
+    img = new(S, S)
     d = ImageDraw.Draw(img)
-    body = (246, 240, 226, 255) if is_white else (70, 62, 92, 255)
-    shade = (204, 192, 168, 255) if is_white else (48, 42, 66, 255)
-    hi = WHITE if is_white else (108, 98, 134, 255)
+    OUT_C = (24, 30, 36, 255)
+    if is_white:
+        fill = (246, 243, 224, 255)     # cream
+        det = OUT_C                     # dark internal lines
+        outline = OUT_C
+    else:
+        fill = (32, 36, 42, 255)        # near-black
+        det = (244, 242, 226, 255)      # cream internal lines
+        outline = OUT_C
 
-    def base():
-        rect(d, 4, 19, 19, 21, body)
-        rect(d, 4, 21, 19, 21, shade)
-        rect(d, 6, 18, 17, 18, shade)
+    def R(x0, y0, x1, y1, c): rect(d, x0, y0, x1, y1, c)
+    def E(x0, y0, x1, y1, c): d.ellipse([x0, y0, x1, y1], fill=c)
+    def P(pts, c): d.polygon(pts, fill=c)
 
+    def foot():
+        """Wide two-step base shared by every piece."""
+        R(19, 66, 61, 71, fill)                             # upper step
+        R(14, 71, 66, 76, fill)                             # bottom slab
+        R(21, 70, 59, 71, det)                              # step seam
+
+    # ---- solid silhouette + internal detail
     if piece == "pawn":
-        rect(d, 9, 3, 14, 8, body)
-        rect(d, 9, 3, 10, 8, shade)
-        rect(d, 10, 9, 13, 13, body)
-        rect(d, 8, 14, 15, 17, body)
-        rect(d, 10, 4, 10, 5, hi)
-    elif piece == "knight":
-        rect(d, 7, 3, 13, 17, body)
-        rect(d, 13, 5, 18, 10, body)
-        rect(d, 7, 3, 8, 17, shade)
-        rect(d, 7, 1, 10, 3, body)
-        rect(d, 12, 1, 14, 3, body)
-        rect(d, 6, 10, 7, 17, body)
-        rect(d, 15, 7, 16, 8, shade)
-        rect(d, 8, 4, 8, 5, hi)
-    elif piece == "bishop":
-        rect(d, 11, 0, 12, 2, body)
-        rect(d, 8, 3, 15, 11, body)
-        rect(d, 8, 3, 9, 11, shade)
-        rect(d, 11, 5, 12, 8, shade)
-        rect(d, 9, 12, 14, 17, body)
-        rect(d, 9, 4, 9, 5, hi)
+        E(29, 8, 51, 30, fill)                              # ball head
+        P([(34, 27), (46, 27), (45, 33), (35, 33)], fill)   # neck
+        R(26, 32, 54, 38, fill)                             # collar
+        P([(30, 38), (50, 38), (56, 66), (24, 66)], fill)   # flared body
+        foot()
+        R(28, 31, 52, 32, det)                              # collar top line
+        R(28, 38, 52, 39, det)                              # collar bottom line
     elif piece == "rook":
-        for bx in (5, 10, 15):
-            rect(d, bx, 2, bx + 3, 6, body)
-        rect(d, 5, 6, 18, 9, body)
-        rect(d, 7, 10, 16, 17, body)
-        rect(d, 7, 10, 8, 17, shade)
-        rect(d, 10, 12, 13, 15, shade)
-        rect(d, 6, 3, 6, 5, hi)
+        for bx in (20, 36, 52):                             # 3 merlons
+            R(bx, 9, bx + 8, 20, fill)
+        R(18, 18, 62, 27, fill)                             # crenellated top band
+        P([(24, 27), (56, 27), (53, 60), (27, 60)], fill)   # tower body
+        R(22, 59, 58, 66, fill)                             # base collar
+        foot()
+        R(23, 28, 57, 29, det)                              # line under top band
+        R(27, 37, 53, 40, det)                              # detail bar 1
+        R(27, 49, 53, 52, det)                              # detail bar 2
+    elif piece == "knight":
+        P([(24, 66), (26, 50), (30, 45),                    # chest up to throat
+           (23, 43), (17, 37), (18, 29),                    # jaw notch, nose tip
+           (28, 20), (39, 16),                              # muzzle top, brow
+           (43, 8), (47, 14),                               # left ear
+           (51, 9), (56, 16),                               # right ear
+           (60, 26), (62, 44), (59, 66)], fill)             # neck sweep to base
+        foot()
+        E(33, 24, 38, 29, det)                              # eye
+        E(22, 30, 26, 34, det)                              # nostril
+        line(d, (22, 39), (28, 40), det, 2)                 # mouth line
+        for i in range(4):                                  # diagonal mane strokes
+            my = 20 + i * 9
+            line(d, (47 - i, my), (58, my + 7), det, 3)
+    elif piece == "bishop":
+        E(36, 2, 44, 10, fill)                              # finial bead
+        P([(40, 6), (50, 22), (30, 22)], fill)              # mitre point
+        E(27, 13, 53, 47, fill)                             # mitre body
+        R(29, 47, 51, 53, fill)                             # collar
+        P([(32, 53), (48, 53), (55, 66), (25, 66)], fill)   # body
+        foot()
+        R(38, 15, 42, 29, det)                              # cross vertical
+        R(33, 20, 47, 24, det)                              # cross bar
+        R(39, 33, 41, 45, det)                              # mitre slit
+        R(27, 46, 53, 47, det)                              # collar top line
+        R(28, 53, 52, 54, det)                              # collar bottom line
     elif piece == "queen":
-        for bx in (5, 10, 15):
-            rect(d, bx, 1, bx + 2, 5, body)
-        rect(d, 5, 0, 6, 1, body)
-        rect(d, 15, 0, 16, 1, body)
-        rect(d, 5, 6, 18, 9, body)
-        rect(d, 7, 10, 16, 16, body)
-        rect(d, 7, 10, 8, 16, shade)
-        rect(d, 10, 7, 10, 8, hi)
+        P([(16, 10), (22, 30), (10, 32)], fill)             # outer point L
+        P([(64, 10), (58, 30), (70, 32)], fill)             # outer point R
+        P([(28, 10), (33, 30), (21, 31)], fill)             # inner point L
+        P([(52, 10), (59, 31), (47, 30)], fill)             # inner point R
+        P([(40, 10), (46, 30), (34, 30)], fill)             # center point
+        for px_ in (16, 28, 40, 52, 64):                    # pearl atop each point
+            E(px_ - 4, 3, px_ + 4, 11, fill)
+        P([(12, 28), (68, 28), (60, 38), (20, 38)], fill)   # coronet rim
+        R(19, 36, 61, 44, fill)                             # band
+        P([(22, 44), (58, 44), (47, 54), (54, 66),          # rounded waisted body
+           (26, 66), (33, 54)], fill)
+        foot()
+        R(21, 37, 59, 38, det)                              # band line
+        for dx in (25, 35, 45, 55):                         # row of band dots
+            E(dx - 2, 40, dx + 2, 44, det)
     elif piece == "king":
-        rect(d, 11, 0, 12, 6, body)
-        rect(d, 9, 2, 14, 3, body)
-        rect(d, 6, 7, 17, 10, body)
-        rect(d, 8, 11, 15, 16, body)
-        rect(d, 8, 11, 9, 16, shade)
-        rect(d, 11, 12, 12, 15, shade)
-        rect(d, 7, 8, 7, 9, hi)
-    base()
-    return auto_outline(img)
+        R(37, 1, 43, 19, fill)                              # cross vertical
+        R(30, 7, 50, 13, fill)                              # cross bar
+        E(21, 21, 45, 45, fill)                             # crown lobe L
+        E(35, 21, 59, 45, fill)                             # crown lobe R
+        P([(27, 40), (53, 40), (56, 66), (24, 66)], fill)   # body
+        foot()
+        R(39, 23, 41, 43, det)                              # lobe divider
+        R(26, 47, 54, 51, det)                              # body band
+    return outline_thick(img, outline, r=2)
 
 
 def gen_icons():

@@ -4,6 +4,8 @@ import SwiftData
 /// Performance history (PRD §3.4): totals, per-difficulty breakdown, fight stats, match list.
 struct HistoryView: View {
     @Query(sort: \MatchRecord.date, order: .reverse) private var matches: [MatchRecord]
+    @Environment(\.modelContext) private var modelContext
+    @State private var showClearConfirm = false
 
     private var wins: Int { return matches.filter { $0.result == "win" }.count }
     private var losses: Int { return matches.filter { $0.result == "loss" }.count }
@@ -75,12 +77,73 @@ struct HistoryView: View {
                     Text("No matches yet. Go fight!")
                         .foregroundStyle(.secondary)
                 }
+                // Swipe to delete a single match.
                 ForEach(matches) { match in
                     MatchRow(match: match)
+                }
+                .onDelete(perform: deleteMatches)
+            }
+
+            if !matches.isEmpty {
+                Section {
+                    Button(role: .destructive) {
+                        showClearConfirm = true
+                    } label: {
+                        Label("Clear Play History", systemImage: "trash")
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                } footer: {
+                    Text("Permanently deletes every match and fight record on this device. Your in-progress games are not affected.")
                 }
             }
         }
         .navigationTitle("History")
+        .toolbar {
+            if !matches.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    EditButton()
+                }
+            }
+        }
+        .confirmationDialog("Clear play history?",
+                            isPresented: $showClearConfirm,
+                            titleVisibility: .visible) {
+            Button("Delete All History", role: .destructive) {
+                clearAllHistory()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently deletes all \(matches.count) match records and their fight stats. It cannot be undone.")
+        }
+    }
+
+    // MARK: - Deletion
+
+    /// Delete individual matches (swipe / Edit mode). Cascade rules on
+    /// MatchRecord remove each match's FightRecords with it.
+    private func deleteMatches(at offsets: IndexSet) {
+        for index in offsets {
+            modelContext.delete(matches[index])
+        }
+        saveContext()
+    }
+
+    /// Wipe every match record. FightRecords are removed by the cascade
+    /// delete rule declared on MatchRecord.fights.
+    private func clearAllHistory() {
+        for match in matches {
+            modelContext.delete(match)
+        }
+        saveContext()
+        Haptics.success()
+    }
+
+    private func saveContext() {
+        do {
+            try modelContext.save()
+        } catch {
+            print("CombatChess: failed to save history changes — \(error.localizedDescription)")
+        }
     }
 
     private func statBox(value: String, label: String) -> some View {

@@ -36,6 +36,9 @@ struct SettingsView: View {
             Section {
                 LabeledContent("Version", value: "1.0")
                 LabeledContent("Action cards per match", value: "3")
+                NavigationLink("Privacy Policy") {
+                    PrivacyPolicyView()
+                }
                 NavigationLink("Open Source & Licenses") {
                     LicensesView()
                 }
@@ -44,6 +47,52 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Settings")
+    }
+}
+
+/// In-app privacy policy. App Store Review Guideline 5.1.1(i) requires the
+/// policy to be reachable from within the app, not only from the App Store
+/// listing — so the full text is bundled here rather than merely linked.
+struct PrivacyPolicyView: View {
+    /// Canonical hosted copy (App Store Connect needs this URL too).
+    static let policyURL = "https://github.com/PunchManDev/CombatChess/blob/main/PRIVACY.md"
+
+    var body: some View {
+        List {
+            Section {
+                Text("Combat Chess does not collect, store, or share any personal data. There is no analytics, no advertising, no tracking, and no account with us. The developer operates no server.")
+                    .font(.subheadline)
+            }
+            Section("Stored on your device only") {
+                Text("Your saved game, match history, and settings live on your device and never leave it. Notification reminders for online matches are scheduled locally. Deleting the app deletes all of it.")
+                    .font(.footnote)
+            }
+            Section("Game Center (only if you play online)") {
+                Text("Online multiplayer uses Apple's Game Center. If you play online, your Game Center nickname and your moves travel through Apple's servers to reach your opponent — that's inherent to playing a match. The developer receives none of it and has no access to it. Apple's handling of that data is governed by Apple's privacy policy.")
+                    .font(.footnote)
+                if let url = URL(string: "https://www.apple.com/legal/privacy/") {
+                    Link("Apple's Privacy Policy", destination: url)
+                }
+                Text("If you never play online, no data leaves your device at all.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Section("What we don't do") {
+                Text("• No personal information collected\n• No analytics or crash-reporting SDKs\n• No ads\n• No cross-app or cross-site tracking\n• No selling or sharing data with third parties")
+                    .font(.footnote)
+            }
+            Section {
+                Text("Combat Chess is open source (GPL v3) — you can read the code and verify every claim on this page.")
+                    .font(.footnote)
+                if let url = URL(string: Self.policyURL) {
+                    Link("View this policy online", destination: url)
+                }
+                if let url = URL(string: "https://github.com/PunchManDev/CombatChess") {
+                    Link("Source code", destination: url)
+                }
+            }
+        }
+        .navigationTitle("Privacy Policy")
     }
 }
 
@@ -63,14 +112,14 @@ struct LicensesView: View {
     var body: some View {
         List {
             Section("Combat Chess") {
-                Text("Copyright © 2026 Jigesh Parekh.\n\nThis program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License v3 as published by the Free Software Foundation. It is distributed WITHOUT ANY WARRANTY; see the license for details.")
+                Text("Copyright © 2026 PunchMan LLC.\n\nThis program is free software under the terms of the GNU General Public License v3 as published by the Free Software Foundation. It is distributed WITHOUT ANY WARRANTY.")
                     .font(.footnote)
                 if let url = URL(string: Self.sourceURL) {
                     Link("Get the source code", destination: url)
                 }
             }
             Section("Chess Engine") {
-                Text("Stockfish 17 — Copyright © the Stockfish developers. Licensed under the GNU General Public License v3. Includes NNUE evaluation networks from the Stockfish project.")
+                Text("Stockfish 17 — Copyright ©Stockfish . Licensed under the GNU General Public License v3. Includes NNUE evaluation networks from the Stockfish project.")
                     .font(.footnote)
                 if let url = URL(string: "https://stockfishchess.org") {
                     Link("stockfishchess.org", destination: url)

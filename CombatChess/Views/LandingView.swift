@@ -1,4 +1,5 @@
 import SwiftUI
+import GameKit
 
 /// Arcade title screen (PRD §3.1): start game, difficulty, history, settings.
 struct LandingView: View {
@@ -12,6 +13,19 @@ struct LandingView: View {
 
     private var difficulty: Difficulty {
         return Difficulty(rawValue: defaultDifficulty) ?? .medium
+    }
+
+    /// Badge count for the "Your Games" button: active online matches plus
+    /// the resumable CPU snapshot.
+    private var gamesInProgress: Int {
+        return GameKitManager.shared.activeMatches.count + (hasResumableMatch ? 1 : 0)
+    }
+
+    /// Inviter's display name for the pending-challenge button (participant
+    /// 0 is always the match creator; see OnlineMatchCoordinator).
+    private static func inviterName(_ match: GKTurnBasedMatch) -> String {
+        let name = match.participants.first?.player?.displayName ?? "A RIVAL"
+        return name.uppercased()
     }
 
     /// Elo shown on the selector (tracks the Settings sliders live).
@@ -32,6 +46,26 @@ struct LandingView: View {
                 PixelImage("bg_title")
                     .aspectRatio(contentMode: .fill)
                     .ignoresSafeArea()
+
+                // Rulebook — top-right corner.
+                VStack {
+                    HStack {
+                        Spacer()
+                        NavigationLink {
+                            RulebookView()
+                        } label: {
+                            Image(systemName: "questionmark.circle.fill")
+                                .font(.system(size: 30))
+                                .foregroundStyle(Arcade.gold)
+                                .padding(8)
+                                .background(Color.black.opacity(0.4), in: Circle())
+                        }
+                        .padding(.trailing, 20)
+                        .padding(.top, 8)
+                    }
+                    Spacer()
+                }
+                .zIndex(1)
 
                 VStack(spacing: 0) {
                     Spacer(minLength: 30)
@@ -103,6 +137,19 @@ struct LandingView: View {
                         }
                         .buttonStyle(ArcadeButtonStyle(color: Arcade.gold))
 
+                        // Every game in progress, grouped by opponent:
+                        // active online matches + the saved CPU game.
+                        if gamesInProgress > 0 {
+                            NavigationLink {
+                                GamesListView { saved in
+                                    activeMatch = MatchController(resuming: saved)
+                                }
+                            } label: {
+                                Text("Your Games · \(gamesInProgress)")
+                            }
+                            .buttonStyle(ArcadeButtonStyle(color: Arcade.blue))
+                        }
+
                         if hasResumableMatch {
                             Button {
                                 if let saved = MatchSnapshotStore.load() {
@@ -114,6 +161,19 @@ struct LandingView: View {
                                 Text("Resume Match")
                             }
                             .buttonStyle(ArcadeButtonStyle(color: Arcade.blue))
+                        }
+
+                        // Pending Game Center challenge (docs/INVITE_FLOW.md):
+                        // surfaced after auth sweeps invited matches — the
+                        // landing pad for invite-to-install players.
+                        if let invite = GameKitManager.shared.pendingInvites.first {
+                            Button {
+                                Haptics.impact(.medium)
+                                GameKitManager.shared.acceptInvite(invite)
+                            } label: {
+                                Text("⚔ Challenge from \(Self.inviterName(invite))")
+                            }
+                            .buttonStyle(ArcadeButtonStyle(color: Arcade.gold, filled: true))
                         }
 
                         // Online play (Game Center): friend invites +
@@ -163,17 +223,22 @@ struct LandingView: View {
                         hasResumableMatch = MatchSnapshotStore.hasSnapshot
                     }
             }
-            // Online matches: opened by Game Center turn events.
-            .fullScreenCover(item: Binding(
-                get: { GameKitManager.shared.activeCoordinator },
-                set: { GameKitManager.shared.activeCoordinator = $0 })) { coordinator in
-                MatchView(controller: coordinator.controller)
-            }
             .onAppear {
                 hasResumableMatch = MatchSnapshotStore.hasSnapshot
                 // Game Center sign-in (idempotent; shows Apple's sheet if needed).
                 GameKitManager.shared.authenticate()
+                // Re-sweep invites + active matches when returning to the
+                // title screen (the auth handler only fires once per launch).
+                GameKitManager.shared.refreshMatches()
             }
+        }
+        // Online matches: opened by Game Center turn events. Attached to the
+        // NavigationStack, NOT the inner content — SwiftUI allows only one
+        // presentation modifier per view, and the offline cover lives inside.
+        .fullScreenCover(item: Binding(
+            get: { GameKitManager.shared.activeCoordinator },
+            set: { GameKitManager.shared.activeCoordinator = $0 })) { coordinator in
+            MatchView(controller: coordinator.controller)
         }
     }
 }

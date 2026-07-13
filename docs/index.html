@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Combat Chess — Chess where captures fight back</title>
+<meta name="description" content="Combat Chess for iPhone: full-rules chess where contested captures drop into real-time retro pixel brawls. Support, privacy policy, and licensing information.">
+<style>
+  :root {
+    --bg:      #171221;
+    --panel:   #211a30;
+    --panel2:  #2a2140;
+    --gold:    #f5ba26;
+    --gold-dk: #b8860b;
+    --red:     #e84247;
+    --blue:    #477af5;
+    --cream:   #f5f0e6;
+    --dim:     rgba(245, 240, 230, 0.72);
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(71,122,245,0.12), transparent),
+      var(--bg);
+    color: var(--cream);
+    font-family: var(--mono);
+    line-height: 1.6;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--gold); text-decoration-color: rgba(245,186,38,0.4); }
+  a:hover { color: #ffd35c; }
+
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 18px 60px; }
+
+  /* ---------- Header / wordmark ---------- */
+  header { text-align: center; padding: 44px 0 10px; }
+  .wordmark { line-height: 1.02; letter-spacing: 0.06em; font-weight: 900; }
+  .wordmark .combat {
+    display: block;
+    font-size: clamp(38px, 9vw, 72px);
+    color: var(--gold);
+    text-shadow: 0 4px 0 var(--gold-dk), 0 8px 0 rgba(0,0,0,0.55);
+  }
+  .wordmark .chess {
+    display: block;
+    font-size: clamp(38px, 9vw, 72px);
+    color: var(--red);
+    text-shadow: 0 4px 0 #8f1f22, 0 8px 0 rgba(0,0,0,0.55);
+  }
+  .tagline {
+    margin-top: 14px;
+    color: var(--dim);
+    font-size: 13px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+  }
+
+  /* ---------- Tabs ---------- */
+  nav[role="tablist"] {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin: 30px 0 26px;
+  }
+  .tab-btn {
+    appearance: none;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--cream);
+    background: var(--panel);
+    border: 3px solid var(--gold-dk);
+    box-shadow: 0 4px 0 rgba(0,0,0,0.6);
+    padding: 12px 18px;
+    transition: transform 0.05s ease;
+  }
+  .tab-btn:hover { border-color: var(--gold); }
+  .tab-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,0.6); }
+  .tab-btn[aria-selected="true"] {
+    background: var(--gold);
+    color: #1b1409;
+    border-color: var(--gold);
+    text-shadow: none;
+  }
+  .tab-btn:focus-visible { outline: 3px dashed var(--blue); outline-offset: 3px; }
+
+  /* ---------- Panels ---------- */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; animation: pop 0.18s ease-out; }
+  @keyframes pop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .card {
+    background: var(--panel);
+    border: 3px solid rgba(245,186,38,0.55);
+    box-shadow: 0 6px 0 rgba(0,0,0,0.45);
+    padding: 22px 24px;
+    margin: 0 0 22px;
+  }
+  .card.blue { border-color: rgba(71,122,245,0.65); }
+  .card.red  { border-color: rgba(232,66,71,0.65); }
+
+  h2 {
+    margin: 0 0 12px;
+    font-size: 19px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .card.blue h2 { color: var(--blue); }
+  .card.red  h2 { color: var(--red); }
+  h3 { font-size: 15px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold); margin: 22px 0 8px; }
+  p, li { color: var(--dim); font-size: 15px; }
+  p strong, li strong { color: var(--cream); }
+  ul { padding-left: 22px; margin: 10px 0; }
+  li { margin: 6px 0; }
+  li::marker { color: var(--gold); }
+
+  .hook {
+    text-align: center;
+    font-size: clamp(20px, 4.6vw, 30px);
+    font-weight: 900;
+    color: var(--cream);
+    margin: 6px 0 4px;
+  }
+  .subhook { text-align: center; color: var(--dim); max-width: 640px; margin: 0 auto 28px; }
+
+  /* Screenshots */
+  .shots { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin: 26px 0 30px; }
+  .shots figure { margin: 0; width: min(230px, 44vw); }
+  .shots img {
+    width: 100%; height: auto; display: block;
+    border: 3px solid var(--panel2);
+    box-shadow: 0 8px 0 rgba(0,0,0,0.5);
+  }
+  .shots figcaption {
+    text-align: center; font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--dim); margin-top: 8px;
+  }
+
+  /* Feature grid */
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 18px; }
+  .feat {
+    background: var(--panel2);
+    border-left: 4px solid var(--gold);
+    padding: 14px 16px;
+  }
+  .feat:nth-child(2n) { border-left-color: var(--red); }
+  .feat:nth-child(3n) { border-left-color: var(--blue); }
+  .feat b { display: block; color: var(--cream); font-size: 14px; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 4px; }
+  .feat span { font-size: 13.5px; color: var(--dim); }
+
+  /* HP table */
+  table.hp { width: 100%; border-collapse: collapse; margin: 12px 0 4px; }
+  table.hp td, table.hp th {
+    border: 2px solid var(--panel2);
+    padding: 8px 12px;
+    font-size: 14px;
+    text-align: left;
+  }
+  table.hp th { color: var(--gold); text-transform: uppercase; letter-spacing: 0.08em; font-size: 12px; }
+  table.hp td.hpv { color: var(--gold); font-weight: 800; }
+  table.hp td { color: var(--dim); }
+
+  /* FAQ */
+  details {
+    background: var(--panel2);
+    border: 2px solid rgba(245,186,38,0.35);
+    margin: 10px 0;
+  }
+  details[open] { border-color: var(--gold); }
+  summary {
+    cursor: pointer;
+    padding: 13px 16px;
+    font-weight: 800;
+    font-size: 14.5px;
+    color: var(--cream);
+    list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: "▸ "; color: var(--gold); }
+  details[open] summary::before { content: "▾ "; }
+  details .a { padding: 0 16px 14px; }
+  details .a p, details .a li { font-size: 14px; }
+
+  .btn-row { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0 4px; }
+  .arcade-link {
+    display: inline-block;
+    font-weight: 800; font-size: 14px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: #1b1409; background: var(--gold);
+    border: 3px solid var(--gold);
+    box-shadow: 0 4px 0 rgba(0,0,0,0.55);
+    padding: 11px 16px; text-decoration: none;
+  }
+  .arcade-link:hover { background: #ffd35c; color: #1b1409; }
+  .arcade-link.ghost { background: transparent; color: var(--gold); }
+  .arcade-link.ghost:hover { color: #ffd35c; }
+
+  .fineprint { text-align: center; color: rgba(245,240,230,0.45); font-size: 12px; margin-top: 42px; }
+  .fineprint a { color: rgba(245,186,38,0.75); }
+  code { background: var(--panel2); padding: 1px 6px; font-size: 0.92em; color: var(--cream); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="wordmark" aria-label="Combat Chess">
+      <span class="combat">COMBAT</span>
+      <span class="chess">CHESS</span>
+    </div>
+    <div class="tagline">Capture &middot; Challenge &middot; Fight</div>
+  </header>
+
+  <nav role="tablist" aria-label="Site sections">
+    <button class="tab-btn" id="tab-marketing" role="tab" aria-controls="marketing" aria-selected="true"  data-tab="marketing">The Game</button>
+    <button class="tab-btn" id="tab-support"   role="tab" aria-controls="support"   aria-selected="false" data-tab="support">Support</button>
+    <button class="tab-btn" id="tab-privacy"   role="tab" aria-controls="privacy"   aria-selected="false" data-tab="privacy">Privacy</button>
+    <button class="tab-btn" id="tab-legal"     role="tab" aria-controls="legal"     aria-selected="false" data-tab="legal">Legal</button>
+  </nav>
+
+  <!-- =============================== MARKETING =============================== -->
+  <section class="tab-panel active" id="marketing" role="tabpanel" aria-labelledby="tab-marketing">
+
+    <p class="hook">It&rsquo;s chess. With fists.</p>
+    <p class="subhook">Combat Chess is real, full-rules chess &mdash; until a capture is contested. Then both
+    pieces drop into a real-time retro pixel brawl, and the winner keeps the square.
+    No piece goes quietly. Not even the king.</p>
+
+    <div class="shots">
+      <figure>
+        <img src="img/shot-title.png" alt="Combat Chess title screen: a knight and a queen square up under the pixel logo" width="1320" height="2868">
+        <figcaption>Chess meets combat</figcaption>
+      </figure>
+      <figure>
+        <img src="img/shot-challenge.png" alt="Challenge screen: Your Queen (275 HP) versus Enemy Knight (125 HP) with Concede and Fight buttons" width="1320" height="2868">
+        <figcaption>Contest the capture</figcaption>
+      </figure>
+      <figure>
+        <img src="img/shot-fight.png" alt="Fight screen: a rook lands a 52-damage punch on a bishop in a side-view pixel brawl" width="1320" height="2868">
+        <figcaption>Winner keeps the square</figcaption>
+      </figure>
+    </div>
+
+    <div class="card">
+      <h2>Action Cards: fight for the square</h2>
+      <p>You start every match with <strong>3 Action Cards</strong>. When your piece is captured,
+      spend one to force a fight instead of just losing it. Win the brawl and the capture is
+      repelled &mdash; your piece holds the square and the attacker is removed. Cards are spent
+      win or lose and never refill mid-match. Run dry, and captures land like ordinary chess.</p>
+    </div>
+
+    <div class="card red">
+      <h2>Fights that matter</h2>
+      <table class="hp">
+        <tr><th>Piece</th><th>Fight HP</th><th></th></tr>
+        <tr><td>Pawn</td><td class="hpv">75</td><td>scrappy underdog</td></tr>
+        <tr><td>Knight / Bishop</td><td class="hpv">125</td><td></td></tr>
+        <tr><td>Rook</td><td class="hpv">175</td><td></td></tr>
+        <tr><td>Queen</td><td class="hpv">275</td><td>monster</td></tr>
+        <tr><td>King</td><td class="hpv">300</td><td>tankiest of all</td></tr>
+      </table>
+      <p>Damage persists for the <strong>entire match</strong>. Wound the queen now, hunt her down
+      later &mdash; a health bar follows every piece that has fought. A pawn can topple a queen.
+      It just takes near-flawless play.</p>
+    </div>
+
+    <div class="card blue">
+      <h2>Six-button arcade combat</h2>
+      <ul>
+        <li><strong>Left punch</strong> (fast jab) and <strong>right punch</strong> (slow, heavy cross).</li>
+        <li><strong>Side-matched blocking</strong> &mdash; read the tell and guard the correct side to absorb 80% of the hit.</li>
+        <li><strong>Timed dodges</strong> &mdash; perfect timing negates all damage and charges your meter.</li>
+        <li><strong>Stamina</strong> that punishes button-mashing. Burn out and you&rsquo;re exhausted: unable to act and taking 1.5&times; damage.</li>
+        <li>Land perfect dodges to unlock the <strong>SUPER</strong> &mdash; a single power shot worth 2.5&times; a heavy punch.</li>
+      </ul>
+      <p><strong>Spam loses. Reads win.</strong></p>
+    </div>
+
+    <div class="card">
+      <h2>The king never falls quietly</h2>
+      <p>Checkmate isn&rsquo;t automatically the end &mdash; it triggers a mandatory
+      <strong>final fight</strong>: your king duels the mating piece at 300 HP, no card needed.
+      Win the last stand and the mate is broken. This cuts both ways: to beat you, your opponent
+      must finish the job in the ring.</p>
+    </div>
+
+    <div class="grid">
+      <div class="feat"><b>Real chess engine</b><span>Complete standard chess &mdash; castling, en passant, promotion, and every draw rule &mdash; powered by Stockfish, tunable from 600 to 3190 Elo.</span></div>
+      <div class="feat"><b>Play offline</b><span>Single-player works fully offline. Sound and haptics are yours to toggle.</span></div>
+      <div class="feat"><b>Challenge friends</b><span>Turn-based online multiplayer through Game Center &mdash; run several matches at once and take your time.</span></div>
+      <div class="feat"><b>Every match on record</b><span>Wins, losses, streaks, per-difficulty records, fight stats, and your biggest upset.</span></div>
+      <div class="feat"><b>Open and honest</b><span>Open source under the GPL v3. No ads, no tracking, no analytics, no accounts.</span></div>
+      <div class="feat"><b>Pure pixel art</b><span>Every sprite, stage, and card is procedurally generated retro pixel art.</span></div>
+    </div>
+
+    <div class="btn-row" style="justify-content:center; margin-top:26px;">
+      <a class="arcade-link" href="https://github.com/PunchManDev/CombatChess">View the source on GitHub</a>
+      <a class="arcade-link ghost" href="#support" onclick="showTab('support')">Need help?</a>
+    </div>
+
+    <p style="text-align:center; color:var(--dim); margin-top:26px;">
+      Combat Chess for iPhone &mdash; now get out there and make your pieces earn their squares.
+    </p>
+  </section>
+
+  <!-- =============================== SUPPORT =============================== -->
+  <section class="tab-panel" id="support" role="tabpanel" aria-labelledby="tab-support">
+
+    <div class="card">
+      <h2>Get help</h2>
+      <p>The fastest way to reach the developer is the project&rsquo;s issue tracker on GitHub.
+      Bug reports, questions, and feature ideas are all welcome &mdash; you&rsquo;ll get a reply
+      in the thread you open.</p>
+      <div class="btn-row">
+        <a class="arcade-link" href="https://github.com/PunchManDev/CombatChess/issues">Open a support issue</a>
+        <a class="arcade-link ghost" href="https://github.com/PunchManDev/CombatChess">Browse the source</a>
+      </div>
+      <p>When reporting a bug, please include your iPhone model, iOS version, and what you were
+      doing when it happened (single-player or online, mid-fight or on the board). If it happened
+      online, mention roughly when &mdash; it helps narrow down the turn data involved.</p>
+    </div>
+
+    <div class="card blue">
+      <h2>Frequently asked questions</h2>
+
+      <details>
+        <summary>How do Action Cards work?</summary>
+        <div class="a">
+          <p>Each player starts every match with <strong>3 Action Cards</strong>. When one of your
+          pieces is captured, you can spend a card to force a fight between your piece and the
+          attacker instead of just losing it. Win the fight and your piece keeps the square while
+          the attacker is removed. Cards are spent whether you win or lose, and they never refill
+          during a match. Once you&rsquo;re out, captures resolve like normal chess.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Why didn&rsquo;t checkmate end my game?</summary>
+        <div class="a">
+          <p>By design! In Combat Chess, checkmate triggers a mandatory <strong>final fight</strong>:
+          the mated king duels the mating piece at 300 HP, no card needed. If the king wins the last
+          stand, the mate is broken and play continues. To win by checkmate, you have to finish the
+          enemy king in the ring &mdash; and the same applies when you&rsquo;re the one who&rsquo;s mated.
+          While merely in check, you can also choose to spend a card and send your king to fight the
+          checking piece directly instead of moving.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How do fights online work? Am I fighting my friend live?</summary>
+        <div class="a">
+          <p>Not live &mdash; online matches are turn-based, so you&rsquo;re rarely both holding your
+          phones at the same moment. When you contest a capture, the fight resolves immediately
+          <strong>on your own device against a computer-controlled version of your opponent&rsquo;s
+          piece</strong>. The CPU proxy uses the real piece&rsquo;s stats: its true HP (including any
+          damage it carries from earlier fights) and its true punching power. The result is final and
+          binding, and your opponent sees a full recap of what happened on their next turn. Live
+          head-to-head fights are on the roadmap for a future update.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>What is the 4-day forfeit rule?</summary>
+        <div class="a">
+          <p>If you don&rsquo;t make a move in an online match within <strong>4 days</strong>, you
+          forfeit and your opponent wins by default. While the clock is running you&rsquo;ll get one
+          reminder per day (&ldquo;3 / 2 / 1 day(s) left&rdquo;). Reminders are scheduled on your
+          device, so open the app at least once after your opponent moves to make sure they&rsquo;re set.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Why does online play need Game Center?</summary>
+        <div class="a">
+          <p>Combat Chess has <strong>no server of its own</strong>. All matchmaking, turn delivery,
+          and move notifications are handled by Apple&rsquo;s Game Center, which is built into iOS.
+          Sign in under <strong>Settings &rarr; Game Center</strong> on your iPhone, then invite a
+          friend from the game&rsquo;s online menu. Single-player never requires Game Center or an
+          internet connection.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Does the game work offline?</summary>
+        <div class="a">
+          <p>Yes &mdash; single-player against the computer works fully offline, including fights,
+          match history, and settings. Only online multiplayer needs a connection (and Game Center).</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How do I change the difficulty or CPU strength?</summary>
+        <div class="a">
+          <p>Open <strong>Settings</strong> in the app. Each difficulty tier maps to a Stockfish
+          rating you can tune with a slider, from a friendly 600 Elo up to a superhuman 3190.
+          Below 1320 Elo the engine plays with intentionally limited skill; above it, strength is
+          Elo-calibrated. Sound effects and haptics can be toggled in the same place.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How do I clear my play history?</summary>
+        <div class="a">
+          <p>Open <strong>History</strong> in the app. Swipe left on any match to delete it
+          individually, or use <strong>Clear Play History</strong> at the bottom to permanently
+          delete every match and fight record on your device. In-progress games are not affected.
+          History is stored only on your device, so deleting the app also deletes it.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>I&rsquo;m not getting notifications when my opponent moves.</summary>
+        <div class="a">
+          <p>Check that notifications are allowed under <strong>Settings &rarr; Notifications &rarr;
+          Combat Chess</strong>, and that you&rsquo;re signed in under <strong>Settings &rarr; Game
+          Center</strong>. Game Center delivers the &ldquo;your move&rdquo; push itself; the daily
+          forfeit-countdown reminders are scheduled locally, so they require you to have opened the
+          app at least once after the opponent&rsquo;s move.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Why does a health bar follow some of my pieces?</summary>
+        <div class="a">
+          <p>Any piece that has fought carries its damage for the rest of the match &mdash; the
+          health bar shows how hurt it is. A wounded piece enters its next fight at that reduced HP.
+          Health resets between matches.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Is the game really free and open source?</summary>
+        <div class="a">
+          <p>Yes. The complete source code is public at
+          <a href="https://github.com/PunchManDev/CombatChess">github.com/PunchManDev/CombatChess</a>
+          under the GNU GPL v3 &mdash; see the <a href="#legal" onclick="showTab('legal')">Legal</a> tab.
+          There are no ads, no in-app purchases required to play, no tracking, and no accounts.</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="card">
+      <h2>Privacy questions</h2>
+      <p>Combat Chess collects no data at all &mdash; see the
+      <a href="#privacy" onclick="showTab('privacy')">Privacy</a> tab for the full policy.
+      Privacy questions can also be raised on the
+      <a href="https://github.com/PunchManDev/CombatChess/issues">issue tracker</a>.</p>
+    </div>
+  </section>
+
+  <!-- =============================== PRIVACY =============================== -->
+  <section class="tab-panel" id="privacy" role="tabpanel" aria-labelledby="tab-privacy">
+
+    <div class="card">
+      <h2>Privacy Policy</h2>
+      <p><em>Last updated: 2026</em></p>
+      <p><strong>Short version: Combat Chess does not collect, store, or share any personal data.
+      There is no analytics, no advertising, no tracking, and no account with us. There is no
+      server of ours for your data to be sent to.</strong></p>
+
+      <h3>What the app stores &mdash; on your device only</h3>
+      <ul>
+        <li><strong>Game data.</strong> Your saved single-player game, match history (wins/losses,
+        fight statistics), and settings (difficulty, CPU Elo, sound, haptics) are stored locally on
+        your device. They never leave it, except as described under Game Center below. Deleting the
+        app deletes this data.</li>
+        <li><strong>Notifications.</strong> If you allow notifications, the app schedules reminders
+        locally on your device for online matches awaiting your move. Nothing about these is sent
+        anywhere.</li>
+      </ul>
+
+      <h3>Game Center (optional &mdash; only if you play online)</h3>
+      <p>Online multiplayer is provided by <strong>Apple&rsquo;s Game Center</strong>. If you choose
+      to play online, Apple handles the matchmaking, your Game Center identity, and the delivery of
+      turns and notifications. In that case:</p>
+      <ul>
+        <li>Your Game Center nickname and your game moves are transmitted <strong>through
+        Apple&rsquo;s servers</strong> to your opponent, so that you can play. That is inherent to
+        playing an online match.</li>
+        <li>The developer of Combat Chess operates <strong>no server</strong> and receives, stores,
+        and has access to <strong>none</strong> of this data.</li>
+        <li>Apple&rsquo;s handling of Game Center data is governed by Apple&rsquo;s own privacy
+        policy: <a href="https://www.apple.com/legal/privacy/">apple.com/legal/privacy</a></li>
+      </ul>
+      <p>If you never use online play, no data leaves your device at all.</p>
+
+      <h3>What we do NOT do</h3>
+      <ul>
+        <li>We do not collect personal information.</li>
+        <li>We do not use analytics or crash-reporting SDKs.</li>
+        <li>We do not show ads.</li>
+        <li>We do not track you across apps or websites.</li>
+        <li>We do not sell or share data with third parties (we have none to sell).</li>
+      </ul>
+
+      <h3>Children</h3>
+      <p>Combat Chess is safe for general audiences and collects no data from anyone, including
+      children.</p>
+
+      <h3>Open source</h3>
+      <p>Combat Chess is free software released under the GNU GPL v3. You can read the entire
+      source code &mdash; and verify every claim on this page &mdash; at
+      <a href="https://github.com/PunchManDev/CombatChess">github.com/PunchManDev/CombatChess</a>.</p>
+
+      <h3>Changes</h3>
+      <p>If this policy ever changes, the updated version will be published on this page, in the
+      repository, and in the app.</p>
+
+      <h3>Contact</h3>
+      <p>Questions about privacy: open an issue at
+      <a href="https://github.com/PunchManDev/CombatChess/issues">github.com/PunchManDev/CombatChess/issues</a>.</p>
+    </div>
+  </section>
+
+  <!-- =============================== LEGAL =============================== -->
+  <section class="tab-panel" id="legal" role="tabpanel" aria-labelledby="tab-legal">
+
+    <div class="card">
+      <h2>Copyright</h2>
+      <p>Combat Chess &copy; 2026 PunchManDev. All artwork in the game is procedurally generated by
+      the project&rsquo;s own asset pipeline and is covered by the same license as the code.</p>
+    </div>
+
+    <div class="card red">
+      <h2>License: GNU GPL v3</h2>
+      <p>Combat Chess is <strong>free software</strong>, licensed under the
+      <a href="https://www.gnu.org/licenses/gpl-3.0.html">GNU General Public License, version 3</a>.
+      Because the app bundles the Stockfish chess engine (itself GPLv3), the entire application is
+      distributed under the GPLv3 as well.</p>
+      <p>That means you are free to run, study, share, and modify the software. You may sell builds
+      of it; you may not close its source. If you distribute a modified version, GPLv3 &sect;5
+      requires prominent notice of your changes and this same license.</p>
+      <p><strong>Corresponding Source:</strong> as required by the GPL, the complete source code of
+      the app as shipped is available at
+      <a href="https://github.com/PunchManDev/CombatChess">github.com/PunchManDev/CombatChess</a>.
+      The full license text is in the repository&rsquo;s <code>LICENSE</code> file, and these
+      notices are also shown in the app under <em>Settings &rarr; Open Source &amp; Licenses</em>.</p>
+    </div>
+
+    <div class="card blue">
+      <h2>Third-party attributions</h2>
+      <ul>
+        <li><strong><a href="https://stockfishchess.org">Stockfish</a></strong> &mdash; the chess
+        engine powering the computer opponent. &copy; the Stockfish developers, licensed under the
+        GNU GPL v3.</li>
+        <li><strong><a href="https://github.com/chesskit-app/chesskit-engine">ChessKitEngine</a></strong>
+        &mdash; Swift bindings used to run the engine on iOS. Licensed under the MIT License.</li>
+        <li><strong>Game Center</strong> is a service of Apple Inc. Apple, iPhone, and Game Center
+        are trademarks of Apple Inc. This project is not affiliated with or endorsed by Apple.</li>
+      </ul>
+    </div>
+  </section>
+
+  <p class="fineprint">
+    Combat Chess &copy; 2026 PunchManDev &middot; free software under the
+    <a href="https://www.gnu.org/licenses/gpl-3.0.html">GPL v3</a> &middot;
+    <a href="https://github.com/PunchManDev/CombatChess">source code</a> &middot;
+    <a href="https://github.com/PunchManDev/CombatChess/issues">support</a>
+  </p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var TABS = ["marketing", "support", "privacy", "legal"];
+  var DEFAULT_TAB = "marketing";
+
+  function currentFromHash() {
+    var h = window.location.hash.replace(/^#/, "").toLowerCase();
+    return TABS.indexOf(h) !== -1 ? h : DEFAULT_TAB;
+  }
+
+  // Exposed for in-content links (e.g. "Need help?" jumps to Support).
+  window.showTab = function (id, updateHash) {
+    if (TABS.indexOf(id) === -1) id = DEFAULT_TAB;
+    TABS.forEach(function (t) {
+      var panel = document.getElementById(t);
+      var btn = document.getElementById("tab-" + t);
+      var on = t === id;
+      panel.classList.toggle("active", on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    if (updateHash !== false && window.location.hash !== "#" + id) {
+      // replaceState-free approach keeps this working from file:// too.
+      window.location.hash = id;
+    }
+    window.scrollTo(0, 0);
+  };
+
+  // Tab clicks.
+  TABS.forEach(function (t) {
+    document.getElementById("tab-" + t).addEventListener("click", function () {
+      window.showTab(t);
+    });
+  });
+
+  // Back/forward buttons and manual hash edits.
+  window.addEventListener("hashchange", function () {
+    window.showTab(currentFromHash(), false);
+  });
+
+  // Deep link on first load (e.g. landing directly on #support).
+  window.showTab(currentFromHash(), false);
+})();
+</script>
+</body>
+</html>

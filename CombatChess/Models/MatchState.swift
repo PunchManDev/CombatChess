@@ -22,6 +22,14 @@ struct MatchState: Codable {
     /// at the start of their turn (docs/ONLINE_MULTIPLAYER.md §3). The board
     /// state is pre-move while this is set.
     var pendingCaptureMove: Move?
+    /// The last move applied to the board, so the receiving device can animate
+    /// the opponent's move (the board itself is already at the post-move state).
+    var lastAppliedMove: Move?
+    /// Color-absolute summary of the most recent fight, so the player who
+    /// didn't watch it can be shown the outcome (QoL). Version increments per
+    /// fight so each side shows it exactly once.
+    var lastFightSummary: FightSummary?
+    var fightSummaryVersion: Int = 0
 
     init(difficulty: Difficulty) {
         self.board = Board.initial
@@ -31,6 +39,50 @@ struct MatchState: Codable {
         self.playerCardsStart = difficulty.playerCards
         self.aiCardsStart = difficulty.aiCards
         self.repetitionCounts = [board.positionKey: 1]
+    }
+
+    // MARK: - Forward/backward-compatible decoding
+    //
+    // CRITICAL: Swift's synthesized `Codable` IGNORES inline property defaults
+    // when decoding — a missing key throws. That would make save files and
+    // Game Center turn data written by a different app version undecodable,
+    // and an undecodable online turn is destructive (see OnlineMatchCoordinator).
+    // So every field added after the original format decodes with
+    // `decodeIfPresent` and falls back to its default. New fields MUST follow
+    // this pattern; never rely on an inline default alone.
+
+    private enum CodingKeys: String, CodingKey {
+        case board, difficulty, playerCards, aiCards, playerCardsStart, aiCardsStart
+        case moveCount, capturedByPlayer, capturedByAI, repetitionCounts, fightLogs
+        case pendingCaptureMove, lastAppliedMove, lastFightSummary, fightSummaryVersion
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        // Core fields: present in every version; a genuine absence is corruption.
+        board = try c.decode(Board.self, forKey: .board)
+        difficulty = try c.decode(Difficulty.self, forKey: .difficulty)
+        playerCards = try c.decode(Int.self, forKey: .playerCards)
+        aiCards = try c.decode(Int.self, forKey: .aiCards)
+        playerCardsStart = try c.decode(Int.self, forKey: .playerCardsStart)
+        aiCardsStart = try c.decode(Int.self, forKey: .aiCardsStart)
+        // Everything below tolerates absence (older or newer peers).
+        moveCount = try c.decodeIfPresent(Int.self, forKey: .moveCount) ?? 0
+        capturedByPlayer = try c.decodeIfPresent([String].self, forKey: .capturedByPlayer) ?? []
+        capturedByAI = try c.decodeIfPresent([String].self, forKey: .capturedByAI) ?? []
+        repetitionCounts = try c.decodeIfPresent([String: Int].self, forKey: .repetitionCounts) ?? [:]
+        fightLogs = try c.decodeIfPresent([FightLog].self, forKey: .fightLogs) ?? []
+        pendingCaptureMove = try c.decodeIfPresent(Move.self, forKey: .pendingCaptureMove)
+        lastAppliedMove = try c.decodeIfPresent(Move.self, forKey: .lastAppliedMove)
+        lastFightSummary = try c.decodeIfPresent(FightSummary.self, forKey: .lastFightSummary)
+        fightSummaryVersion = try c.decodeIfPresent(Int.self, forKey: .fightSummaryVersion) ?? 0
+    }
+
+    /// A decoded state is only usable if the board survived the trip. Turn data
+    /// arrives from a remote device, so treat it as untrusted: the engine and
+    /// views index `squares` over a hard 0..<64 range and would crash otherwise.
+    var isStructurallyValid: Bool {
+        return board.squares.count == 64
     }
 
     var playerCardsUsed: Int { return playerCardsStart - playerCards }
@@ -76,6 +128,18 @@ struct FightResult {
     let durationSec: Double
 }
 
+/// Color-absolute record of a fight's result — interpreted identically on
+/// both devices to build the waiting player's outcome recap.
+struct FightSummary: Codable {
+    var attackerType: String
+    var attackerColor: PieceColor
+    var defenderType: String
+    var defenderColor: PieceColor
+    /// True if the capturing (attacking) piece won, i.e. the capture stood.
+    var attackerWon: Bool
+    var isCheckFight: Bool
+}
+
 struct FightLog: Codable {
     var moveNumber: Int
     var attackerType: String
@@ -116,7 +180,15 @@ enum MatchSnapshotStore {
 
     static func load() -> MatchState? {
         guard let data = try? Data(contentsOf: fileURL) else { return nil }
-        return try? JSONDecoder().decode(MatchState.self, from: data)
+        guard let state = try? JSONDecoder().decode(MatchState.self, from: data),
+              state.isStructurallyValid else {
+            // A save from an incompatible/corrupt build: discard it rather than
+            // resuming into a crash. The player just starts a new game.
+            print("CombatChess: discarding unreadable saved game")
+            clear()
+            return nil
+        }
+        return state
     }
 
     static func clear() {

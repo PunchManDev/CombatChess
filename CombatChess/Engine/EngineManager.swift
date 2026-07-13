@@ -13,6 +13,9 @@ actor EngineManager {
     private var engine: Engine?
     private var streamTask: Task<Void, Never>?
     private var bestMoveContinuation: CheckedContinuation<String?, Never>?
+    /// Identifies the in-flight request so a stale safety-timeout from an
+    /// earlier move can never resolve (or double-resume) a later one.
+    private var requestGeneration: UInt64 = 0
     /// Flips false permanently on a failed start so we don't retry each move.
     private var available = true
 
@@ -51,12 +54,24 @@ actor EngineManager {
         await engine.send(command: .position(.fen(fen)))
         await engine.send(command: .go(depth: depth, movetime: movetimeMs))
 
+        // Actors are REENTRANT across suspension points: another `bestMove`
+        // can enter while this one awaits below. If that happened it would
+        // overwrite `bestMoveContinuation`, leaking the previous one — a
+        // leaked CheckedContinuation never resumes, so that AI turn would hang
+        // forever on "thinking". Retire any in-flight request first.
+        if let stale = bestMoveContinuation {
+            bestMoveContinuation = nil
+            stale.resume(returning: nil)   // caller falls back to the native engine
+        }
+
+        requestGeneration += 1
+        let generation = requestGeneration
         let move: String? = await withCheckedContinuation { continuation in
             bestMoveContinuation = continuation
             // Safety timeout: never hang the match on the engine.
             Task { [weak self] in
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
-                await self?.timeoutBestMove()
+                await self?.timeoutBestMove(generation: generation)
             }
         }
         return move
@@ -132,8 +147,9 @@ actor EngineManager {
         resumeBestMove(with: move == "(none)" ? nil : move)
     }
 
-    private func timeoutBestMove() async {
-        guard bestMoveContinuation != nil else { return }
+    private func timeoutBestMove(generation: UInt64) async {
+        // Only time out the request this timer was armed for.
+        guard generation == requestGeneration, bestMoveContinuation != nil else { return }
         await engine?.send(command: .stop)
         resumeBestMove(with: nil)
     }

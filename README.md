@@ -120,6 +120,31 @@ at the top of `FightScene.swift` and in `Difficulty.swift` and are
 deliberately easy to experiment with. Art contributions should modify
 `pixelgen.py`, not the PNGs.
 
+## Privacy
+
+**Combat Chess collects nothing.** No analytics, no advertising, no tracking,
+no accounts, and no server of ours for anything to be sent to. Because the
+whole codebase is public, you can verify that rather than take our word for it.
+
+- **On-device only.** Your saved game, match history, and settings live on your
+  device and never leave it. Notification reminders for online matches are
+  scheduled locally. Deleting the app deletes all of it.
+- **Game Center (only if you play online).** Online multiplayer runs on Apple's
+  Game Center. If you use it, your Game Center nickname and your moves travel
+  through *Apple's* servers to reach your opponent — that's inherent to playing
+  a match. The developer receives none of it and has no access to it; Apple's
+  handling is governed by [Apple's privacy policy](https://www.apple.com/legal/privacy/).
+- **Play single-player and nothing leaves your device at all.**
+
+Full policy: **[PRIVACY.md](PRIVACY.md)** — also published at
+<https://punchmandev.github.io/CombatChess/#privacy> and shown in-app under
+*Settings → Privacy Policy* (App Store Review Guideline 5.1.1(i) requires the
+policy to be reachable from inside the app, not just the store listing).
+
+The bundled `PrivacyInfo.xcprivacy` manifest declares no tracking and no
+collected data, with required-reason API disclosures for `UserDefaults`
+(CA92.1) and file timestamps (C617.1).
+
 ## License
 
 Combat Chess is licensed under the **GNU General Public License v3** — see
@@ -136,8 +161,19 @@ and this same license.
 ## Maintainer release checklist (App Store)
 
 Privacy manifest (`PrivacyInfo.xcprivacy`) and encryption-exemption flag are
-in the project; iPhone-only targeting is set. Before each submission: sync
-this repo with the shipped source (that's the GPL compliance), complete the
-App Privacy questionnaire + privacy policy URL in App Store Connect, and run
-the device QA pass (all fight triggers, force-quit resume, online matches
-between two sandbox accounts).
+in the project; iPhone-only targeting is set. The public site (served from
+`docs/` via GitHub Pages) supplies the URLs App Store Connect asks for:
+
+| App Store Connect field | URL |
+|---|---|
+| Support URL (required) | `https://punchmandev.github.io/CombatChess/#support` |
+| Marketing URL | `https://punchmandev.github.io/CombatChess/` |
+| Privacy Policy URL (required) | `https://punchmandev.github.io/CombatChess/#privacy` |
+
+Before each submission: sync this repo with the shipped source (that's the GPL
+compliance), answer the App Privacy questionnaire as **Data Not Collected**,
+set the age rating (mild cartoon violence), confirm the NNUE networks are
+present in the copy you archive from, and run the device QA pass (all fight
+triggers, force-quit resume, online matches between two accounts). See
+[docs/PRELAUNCH_AUDIT.md](docs/PRELAUNCH_AUDIT.md) for the full pre-launch
+findings.
